@@ -83,12 +83,9 @@ impl Rectangle {
 }
 
 pub mod constants {
-    pub const CELL_SIZE: u32 = 40;
-    pub const BODY_SIZE: u32 = 30;
-    pub const BIG_BODY_SIZE: u32 = 36;
+    pub const CELL_SIZE: u32 = 32;
+    pub const BODY_SIZE: u32 = 22;
+    pub const BIG_BODY_SIZE: u32 = 26;
     pub const FOOD_SIZE: u32 = 20;
-    pub const OFFSET: u32 = (CELL_SIZE - BODY_SIZE) / 2;
-    pub const BIG_OFFSET: u32 = (CELL_SIZE - BIG_BODY_SIZE) / 2;
-    pub const FOOD_OFFSET: u32 = (CELL_SIZE - FOOD_SIZE) / 2;
     pub const MOVE_DELAY: f32 = 0.25;
 }

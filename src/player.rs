@@ -45,22 +45,37 @@ impl Player {
             Direction::Left => Vec2D::new(-1, 0),
         };
 
-        for i in (1..self.body.len()).rev() {
+        for i in (0..self.body.len()).rev() {
             if i == (self.body.len() - 1) {
                 let tail_position = self.body[i].position;
                 if self.body[i].is_big {
-                    self.body.push(SnakeBodyPart::new(tail_position.x, tail_position.y));
+                    let mut new_tail = SnakeBodyPart::new_tail(tail_position.x, tail_position.y);
+                    new_tail.orientation = self.body[i].orientation;
+                    self.body.push(new_tail);
+
+                    self.body[i].is_tail = false;
+                    self.body[i].orientation = self.body[i - 1].orientation;
                 } else {
                     self.body_positions.remove(&tail_position);
-                }
-            }
-            self.body[i].position = self.body[i - 1].position;
-            self.body[i].is_big = self.body[i - 1].is_big;
-        }
 
-        self.body[0].position = dest;
-        self.body[0].is_big = false;
-        self.body_positions.insert(dest);
+                    self.body[i].orientation = (self.body[i - 1].orientation.0, None);
+                }
+                self.body[i].position = self.body[i - 1].position;
+                self.body[i].is_big = self.body[i - 1].is_big;
+            } else if i == 0 {
+                self.body[i].position = dest;
+                self.body[i].is_big = false;
+                self.body[i].orientation = (None, Some(self.direction));
+
+                self.body[i + 1].orientation.0 = Some(self.direction);
+
+                self.body_positions.insert(dest);
+            } else {
+                self.body[i].position = self.body[i - 1].position;
+                self.body[i].orientation = self.body[i - 1].orientation;
+                self.body[i].is_big = self.body[i - 1].is_big;
+            }
+        }
     }
 
     fn recompute_body_positions(&mut self) {
@@ -74,13 +89,13 @@ impl Player {
 
     fn default_position() -> Vec<SnakeBodyPart> {
         vec![
-            SnakeBodyPart::new(5, 5),
-            SnakeBodyPart::new(5, 5),
-            SnakeBodyPart::new(5, 5),
-            SnakeBodyPart::new(5, 5),
-            SnakeBodyPart::new(5, 5),
-            SnakeBodyPart::new(5, 5),
-            SnakeBodyPart::new(5, 5),
+            SnakeBodyPart::new_head_with_orientation(6, 5, Some(Direction::Right)),
+            SnakeBodyPart::new_with_orientation(5, 5, Some(Direction::Right), Some(Direction::Right)),
+            SnakeBodyPart::new_with_orientation(4, 5, Some(Direction::Right), Some(Direction::Right)),
+            SnakeBodyPart::new_with_orientation(3, 5, Some(Direction::Right), Some(Direction::Right)),
+            SnakeBodyPart::new_with_orientation(2, 5, Some(Direction::Right), Some(Direction::Right)),
+            SnakeBodyPart::new_with_orientation(1, 5, Some(Direction::Right), Some(Direction::Right)),
+            SnakeBodyPart::new_tail_with_orientation(0, 5, Some(Direction::Right)),
         ]
     }
 }
@@ -88,24 +103,86 @@ impl Player {
 #[derive(Debug)]
 pub struct SnakeBodyPart {
     pub is_head: bool,
+    pub is_tail: bool,
     pub is_big: bool,
     pub position: Vec2D,
+    pub orientation: (Option<Direction>, Option<Direction>)
 }
 
 impl SnakeBodyPart {
     pub fn new(x: i32, y: i32) -> SnakeBodyPart {
         SnakeBodyPart {
             is_head: false,
+            is_tail: false,
             is_big: false,
-            position: Vec2D::new(x, y)
+            position: Vec2D::new(x, y),
+            orientation: (None, None)
         }
     }
 
-    pub fn _new_big(x: i32, y: i32) -> SnakeBodyPart {
-        SnakeBodyPart {
-            is_head: false,
-            is_big: true,
-            position: Vec2D::new(x, y)
+    pub fn new_head(x: i32, y: i32) -> SnakeBodyPart {
+        let mut body_part = SnakeBodyPart::new(x, y);
+        body_part.is_head = true;
+        body_part
+    }
+
+    pub fn new_tail(x: i32, y: i32) -> SnakeBodyPart {
+        let mut body_part = SnakeBodyPart::new(x, y);
+        body_part.is_tail = true;
+        body_part
+    }
+
+    pub fn new_with_orientation(x: i32, y: i32, in_orientation: Option<Direction>, out_orientation: Option<Direction>) -> SnakeBodyPart {
+        let mut body_part = SnakeBodyPart::new(x, y);
+        body_part.orientation = (in_orientation, out_orientation);
+        body_part
+    }
+
+    pub fn new_head_with_orientation(x: i32, y: i32, orientation: Option<Direction>) -> SnakeBodyPart {
+        let mut body_part = SnakeBodyPart::new_with_orientation(x, y, None, orientation);
+        body_part.is_head = true;
+        body_part
+    }
+
+    pub fn new_tail_with_orientation(x: i32, y: i32, orientation: Option<Direction>) -> SnakeBodyPart {
+        let mut body_part = SnakeBodyPart::new_with_orientation(x, y, orientation, None);
+        body_part.is_tail = true;
+        body_part
+    }
+
+    pub fn get_sprite_and_rotation(&self) -> Result<(SpriteType, f32), &'static str> {
+        if self.is_tail {
+            match self.orientation {
+                (Some(Direction::Up), None) => Ok((SpriteType::Tail, 0.0)),
+                (Some(Direction::Right), None) => Ok((SpriteType::Tail, std::f32::consts::FRAC_PI_2)),
+                (Some(Direction::Down), None) => Ok((SpriteType::Tail, std::f32::consts::PI)),
+                (Some(Direction::Left), None) => Ok((SpriteType::Tail, -std::f32::consts::FRAC_PI_2)),
+                _ => Err("Error")
+            }
+        } else if self.is_head {
+            match self.orientation {
+                (None, Some(Direction::Up)) => Ok((SpriteType::Head, 0.0)),
+                (None, Some(Direction::Right)) => Ok((SpriteType::Head, std::f32::consts::FRAC_PI_2)),
+                (None, Some(Direction::Down)) => Ok((SpriteType::Head, std::f32::consts::PI)),
+                (None, Some(Direction::Left)) => Ok((SpriteType::Head, -std::f32::consts::FRAC_PI_2)),
+                _ => Err("Error")
+            }
+        } else {
+            match self.orientation {
+                (Some(Direction::Up), Some(Direction::Up)) => Ok((SpriteType::Straight, 0.0)),
+                (Some(Direction::Right), Some(Direction::Right)) => Ok((SpriteType::Straight, std::f32::consts::FRAC_PI_2)),
+                (Some(Direction::Down), Some(Direction::Down)) => Ok((SpriteType::Straight, std::f32::consts::PI)),
+                (Some(Direction::Left), Some(Direction::Left)) => Ok((SpriteType::Straight, -std::f32::consts::FRAC_PI_2)),
+                (Some(Direction::Up), Some(Direction::Left)) => Ok((SpriteType::Right, 0.0)),
+                (Some(Direction::Up), Some(Direction::Right)) => Ok((SpriteType::Left, 0.0)),
+                (Some(Direction::Right), Some(Direction::Down)) => Ok((SpriteType::Left, std::f32::consts::FRAC_PI_2)),
+                (Some(Direction::Right), Some(Direction::Up)) => Ok((SpriteType::Right, std::f32::consts::FRAC_PI_2)),
+                (Some(Direction::Down), Some(Direction::Left)) => Ok((SpriteType::Left, std::f32::consts::PI)),
+                (Some(Direction::Down), Some(Direction::Right)) => Ok((SpriteType::Right, std::f32::consts::PI)),
+                (Some(Direction::Left), Some(Direction::Up)) => Ok((SpriteType::Left, -std::f32::consts::FRAC_PI_2)),
+                (Some(Direction::Left), Some(Direction::Down)) => Ok((SpriteType::Right, -std::f32::consts::FRAC_PI_2)),
+                _ => Err("Error")
+            }
         }
     }
 }
@@ -114,4 +191,12 @@ impl From<(i32, i32)> for Vec2D {
     fn from(p: (i32, i32)) -> Self {
         p.into()
     }
+}
+
+pub enum SpriteType {
+    Head,
+    Tail,
+    Straight,
+    Left,
+    Right,
 }
